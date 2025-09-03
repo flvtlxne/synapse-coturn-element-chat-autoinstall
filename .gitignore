@@ -1,0 +1,10 @@
+.idea
+
+/element
+/synapse
+/postgres
+
+nginx/nginx.conf.template
+docker-compose.yaml
+
+.env
