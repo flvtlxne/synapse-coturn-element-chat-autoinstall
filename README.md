@@ -77,7 +77,7 @@ docker run -it --rm -v "${PWD}/synapse:/data" -e SYNAPSE_SERVER_NAME=localhost -
 openssl rand -hex 32
 ```
 
-# TODO Создать и заполнить файлы в соответствии с .example
+# Создать и заполнить файлы в соответствии с .example
 
 ```bash
 cp env.example .env
@@ -96,8 +96,30 @@ docker-compose up -d
 docker exec -it sas_messenger_matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
 ```
 
+# Настройка turn для звонков
+
+## На машине с ubuntu без docker
+
+```bash
+sudo apt update
+sudo apt install coturn
+
+sudo nano /etc/turnserver.conf
+```
+Конфиг turn пердставлен в turnserver.conf.example
+```bash
+# Включите сервис
+sudo systemctl enable coturn
+sudo systemctl start coturn
+sudo systemctl status coturn
+```
+Потом проверить:
+```bash
+netstat -tulpn | grep -E '3478|5349'
+```
+
 ## Что сделать
 
-- Настроить и починить звонки (они не работают)
+- Настроить и починить звонки (они не работают на мобильной связи или за NAT?)
 - Скрипт запуска
 - Бэкапы

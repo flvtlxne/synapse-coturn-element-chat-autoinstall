@@ -73,14 +73,6 @@ services:
       - "80"
     networks:
       - sas-messenger-backend-proxy-network
-
-  turn:
-    image: instrumentisto/coturn
-    container_name: sas_messenger_turn
-    restart: unless-stopped
-    network_mode: "host"
-    volumes:
-      - ./turn/turnserver.conf:/etc/coturn/turnserver.conf:ro
   # ----------------------- ------------------------------------
   
   # ----------------------- PGAdmin ----------------------------
