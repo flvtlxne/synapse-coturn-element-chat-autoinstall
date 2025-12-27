@@ -1,6 +1,6 @@
-# Черновик инструкции
+## Подготовка машины
 
-## Подготовка и запуск
+Зайти на удалённый сервер с ubuntu (проверял на 24.04)
 
 ```bash
 sudo apt update
@@ -34,7 +34,7 @@ maxretry    = 6
 bantime     = 86400
 ```
 
-# --------------- Подкачка
+Подкачка
 ```bash
 # Проверить есть ли уже swap
 free -h
@@ -51,7 +51,7 @@ sudo sysctl vm.swappiness=10
 free -h
 ```
 
-# --------------- Сертификат
+Сертификат
 ```bash
 sudo apt update
 sudo apt install snapd
@@ -60,6 +60,8 @@ sudo snap install --classic certbot
 sudo ln -s /snap/bin/certbot /usr/bin/certbot
 sudo certbot certonly --standalone -d {{ FULL_DOMAIN }}
 ```
+
+## Настройка сервиса
 
 ```bash
 mkdir -p synapse postgres element turn
@@ -75,7 +77,7 @@ docker run -it --rm -v "${PWD}/synapse:/data" -e SYNAPSE_SERVER_NAME=localhost -
 openssl rand -hex 32
 ```
 
-# TODO Создать и заполнить файлы в соответствии с env.example
+# TODO Создать и заполнить файлы в соответствии с .example
 
 ```bash
 cp env.example .env
@@ -96,5 +98,6 @@ docker exec -it sas_messenger_matrix_synapse register_new_matrix_user -c /data/h
 
 ## Что сделать
 
+- Настроить и починить звонки (они не работают)
 - Скрипт запуска
 - Бэкапы
