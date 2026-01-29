@@ -36,15 +36,15 @@ http {
     server {
         listen 80;
         listen [::]:80;
-        server_name {{ FULL_DOMAIN }};
-        return 301 https://{{ FULL_DOMAIN }}$request_uri;
+        server_name ${FULL_DOMAIN};
+        return 301 https://${FULL_DOMAIN}$request_uri;
     }
 
     server {
 
         listen 443 ssl;
         listen [::]:443;
-        server_name {{ FULL_DOMAIN }};
+        server_name ${FULL_DOMAIN};
 
         gzip on;
 		gzip_comp_level 5;
@@ -128,9 +128,9 @@ http {
             proxy_set_header Connection "upgrade";
         }
 
-        location /{{ PGADMIN_PREFIX }} {
+        location /${PGADMIN_PREFIX} {
 
-            proxy_pass http://pgadmin:80/{{ PGADMIN_PREFIX }};
+            proxy_pass http://pgadmin:80/${PGADMIN_PREFIX};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -145,9 +145,9 @@ http {
             add_header X-XSS-Protection "1; mode=block";
         }
 
-        location /{{ GRAFANA_PATH_PREFIX }} {
+        location /${GRAFANA_PATH_PREFIX} {
 
-            proxy_pass http://grafana:3000/{{ GRAFANA_PATH_PREFIX }};
+            proxy_pass http://grafana:3000/${GRAFANA_PATH_PREFIX};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -160,6 +160,21 @@ http {
             add_header X-Frame-Options SAMEORIGIN;
             add_header X-Content-Type-Options nosniff;
             add_header X-XSS-Protection "1; mode=block";
+        }
+
+        location /${PROMETHEUS_PREFIX}/ {
+            proxy_pass http://sas_messenger_prometheus:9090;
+            proxy_http_version 1.1;
+
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            proxy_hide_header Content-Security-Policy;
+            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" always;
+
+            proxy_redirect off;
         }
     }
 }

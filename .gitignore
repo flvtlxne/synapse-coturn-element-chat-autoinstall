@@ -1,10 +1,9 @@
-.idea
-
 /element
 /synapse
 /postgres
+/turn
+/backup/.env
+/backup/systemd/matrix.backup.service
 
-nginx/nginx.conf.template
-docker-compose.yaml
-
+docker-compose.yml
 .env

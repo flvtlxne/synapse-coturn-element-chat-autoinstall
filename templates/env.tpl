@@ -1,0 +1,29 @@
+# ================= IP address =================
+PUBLIC_IP_ADDR=
+
+# ================= PostgreSQL =================
+POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+POSTGRES_USER=${POSTGRES_USER}
+POSTGRES_DATABASE=${POSTGRES_DATABASE}
+
+# ================= TLS configuration =================
+FULL_DOMAIN=${FULL_DOMAIN}
+CERT_PATH=${CERT_PATH}
+TLS_ENABLED=${TLS_ENABLED}
+
+# ================= TURN secret =================
+TURN_RANDOM_SECRET=${TURN_RANDOM_SECRET}
+
+# ================= PGAdmin =================
+PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
+PGADMIN_PREFIX=${PGADMIN_PREFIX}
+
+# ================= Grafana =================
+GRAFANA_USER=${GRAFANA_USER}
+GRAFANA_PASSWORD=${GRAFANA_PASSWORD}
+GRAFANA_PATH_PREFIX=${GRAFANA_PATH_PREFIX}
+
+# ================= Prometheus =================
+PROMETHEUS_PREFIX=${PROMETHEUS_PREFIX}
+PROMETHEUS_EXTERNAL_URL="https://${FULL_DOMAIN}/${PROMETHEUS_PREFIX}"

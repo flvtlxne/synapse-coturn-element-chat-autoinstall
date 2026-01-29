@@ -1,5 +1,9 @@
 FROM nginx:latest
 
-COPY nginx/nginx.conf.template /etc/nginx/nginx.conf.template
+COPY nginx/templates/nginx.conf.tpl /etc/nginx/templates/nginx.conf.tpl
 
-CMD /bin/bash -c "envsubst '\$BACKEND_SERVER_HOST \$BACKEND_SERVER_PORT' < /etc/nginx/nginx.conf.template > /etc/nginx/nginx.conf && exec nginx -g 'daemon off;'"
+CMD envsubst \ 
+    '$FULL_DOMAIN $PGADMIN_PREFIX $GRAFANA_PATH_PREFIX $PROMETHEUS_PREFIX' \ 
+    < /etc/nginx/templates/nginx.conf.tpl \ 
+    > /etc/nginx/nginx.conf \ 
+    && nginx -g 'daemon off;'

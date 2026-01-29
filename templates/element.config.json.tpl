@@ -1,8 +1,8 @@
 {
     "default_server_config": {
         "m.homeserver": {
-            "base_url": "https://{{ FULL_DOMAIN }}",
-            "server_name": "{{ FULL_DOMAIN }}"
+            "base_url": "https://${FULL_DOMAIN}",
+            "server_name": "${FULL_DOMAIN}"
         }
     },
     "brand": "Element",

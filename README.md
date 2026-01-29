@@ -1,125 +1,44 @@
+## Дисклеймер
+
+Данный репозиторий является форком https://github.com/AntineutronVS/synapse-coturn-element-chat. Внесено множество изменений в структуру проекта, добавлена функциональность автоматической установки, снятия резервных копий и восстановления из бэкапов.
+
 ## Подготовка машины
 
-Зайти на удалённый сервер с ubuntu (проверял на 24.04)
+Тестировалось на VPS с Debian 12 и Ubuntu 24.04. В скрипте стоит проверка ОС, на любых других дистрибутивах, кроме Ubuntu и Debian, установщик работать не будет! Крайне рекомендуется иметь как минимум 2 гигабайта RAM. Текстовые сообщения, аудио- и видеозвонки работают корректно, проверялось как на веб-версии, так и на мобильных устройствах (Android, IOS). Для корректной работы крайне рекомендуется использовать арендованный VPS, находящийся за пределами РФ.
+
+## Установка
+
+Если после клонирования репозитория скрипты не являются исполняемыми, то необходимо выполнить команду chmod +x.
+
+Запуск установки выполняется через ./install.sh, данный скрипт обновит системные пакеты, добавит swap, установит Docker (если уже установлен на системе - можно данный шаг пропустить), установит TLS-сертификат от Let's Encrypt, создаст необходимые для конфигурационных файлов директории. После чего начнётся этап интерактивной установки, где Вы сможете задать креды для Postgres, PGAdmin, Grafana, Prometheus, сгенерировать секрет для TURN. В квадратных скобках написаны дефолтные значения, если нажать Enter, то применится дефолтное значение для переменной в файле .env. После этого будет предложено установить systemd-юниты для автоматического обновления TLS-сертификата (скрипт systemd.sh).
+
+ВАЖНО: если вдруг после завершения скрипта пользователь не будет добавлен в группу docker, то необходимо выйти из SSH-сессии и переподключиться к серверу, после чего проверить наличие пользователя в группе.
+
+## Файлы конфигурации
+
+Все необходимые конфиги создатутся автоматически, файл .env будет заполнен в соответствии с Вашими данными, которые Вы указали в процессе установки. Заполнить нужно будет только переменную PUBLIC_IP_ADDR= в .env (внешний IP-адрес сервера), а также переменные relay-ip= и external-ip= в файле turn/turnserver.conf.
+
+## Запуск
 
 ```bash
-sudo apt update
-sudo apt upgrade
-
-sudo apt install apt-transport-https ca-certificates curl software-properties-common
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
-sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu bionic stable"
-sudo apt update
-apt-cache policy docker-ce
-sudo apt install docker-ce
-sudo systemctl status docker
-sudo usermod -aG docker ${USER}
-
-sudo curl -L https://github.com/docker/compose/releases/download/v2.28.0/docker-compose-`uname -s`-`uname -m` -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-docker-compose --version
+docker compose build nginx
+docker compose up -d
 ```
 
-```bash
-apt-get install fail2ban
-nano /etc/fail2ban/jail.local
-```
-```
-[sshd]
-## если в течении 1 часа:
-findtime    = 3600
-## произведено 6 неудачных попыток логина:
-maxretry    = 6
-## то банить IP на 24 часа:
-bantime     = 86400
-```
+## Создание учётных записей
 
-Подкачка
-```bash
-# Проверить есть ли уже swap
-free -h
+Учётные записи пользователей создаются следующей командой:
 
-sudo fallocate -l 3G /swapfile
-sudo chmod 600 /swapfile
-sudo mkswap /swapfile
-sudo swapon /swapfile
-echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
-echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
-sudo sysctl vm.swappiness=10
-
-# Проверить результат
-free -h
-```
-
-Сертификат
-```bash
-sudo apt update
-sudo apt install snapd
-
-sudo snap install --classic certbot
-sudo ln -s /snap/bin/certbot /usr/bin/certbot
-sudo certbot certonly --standalone -d {{ FULL_DOMAIN }}
-```
-
-## Настройка сервиса
-
-```bash
-mkdir -p synapse postgres element turn
-```
-
-- генерация конфига SYNAPSE
-```shell
-docker run -it --rm -v "${PWD}/synapse:/data" -e SYNAPSE_SERVER_NAME=localhost -e SYNAPSE_REPORT_STATS=no matrixdotorg/synapse:latest generate
-```
-
-Генерация TURN_RANDOM_SECRET
-```bash
-openssl rand -hex 32
-```
-
-# Создать и заполнить файлы в соответствии с .example
-
-```bash
-cp env.example .env
-cp synapse.homeserver.yaml.example synapse/homeserver.yaml
-cp element.config.json.example element/config.json
-cp turnserver.conf.example turn/turnserver.conf
-cp nginx/nginx.conf.template.example nginx/nginx.conf.template 
-```
-
-```bash
-docker-compose up -d
-```
-
-Создать админа:
 ```
 docker exec -it sas_messenger_matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
 ```
+Первая учётная запись должна иметь админские права, остальные - по желанию.
 
-# Настройка turn для звонков
+В дальнейшем все учётные записи для пользователей будут также создаваться через эту команду.
 
-## На машине с ubuntu без docker
+## Резервное копирование
 
-```bash
-sudo apt update
-sudo apt install coturn
+Скрипты резервного копирования лежат в директории /backup. Там же находится файл конфигурации env.tpl, который Вы можете редактировать в зависимости от Ваших нужд (к примеру, указать другую директорию хранения бэкапов или срок их хранения на сервере). Скрипт install.sh создаст директории, где будут храниться бэкапы, после чего произведёт установку systemd-юнита, который будет снимать бэкапы раз в сутки (стандартное время - 03:00). Скрипт backup.sh произведёт процедуру снятия резервной копии контейнеров Postgres, Synapse и Element, после чего поместит архивы в соответствующие контейнерам директории, также он проверяет наличие резервных копий, и если они не соответствуют параметру, указанному в переменной RETENTION_DAYS=, то удаляет их. Скрипт restore.sh отвечает за процесс восстановления из резервной копии и выведет все доступные бэкапы на экран, после чего необходимо будет ввести таймштамп бэкапа, из которого Вы хотите восстановиться. Если же просто нажать Enter, то будет выбран бэкап, снятый последним.
 
-sudo nano /etc/turnserver.conf
-```
-Конфиг turn пердставлен в turnserver.conf.example
-```bash
-# Включите сервис
-sudo systemctl enable coturn
-sudo systemctl start coturn
-sudo systemctl status coturn
-```
-Потом проверить:
-```bash
-netstat -tulpn | grep -E '3478|5349'
-```
-
-## Что сделать
-
-- Настроить и починить звонки (они не работают на мобильной связи или за NAT?)
-- Скрипт запуска
-- Бэкапы
+## Планы на будущее
+Написать плейбук для Ansible.

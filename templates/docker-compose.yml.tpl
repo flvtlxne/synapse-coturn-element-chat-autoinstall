@@ -1,29 +1,22 @@
-version: '3.8'
-
 services:
-  nginx-sas-messenger:
+  nginx:
     build:
       context: .
       dockerfile: nginx/Dockerfile
-    image: nginx-with-conf-template:latest
+    image: sas-messenger-nginx:latest
     container_name: sas_messenger_nginx
     env_file:
       - .env
-    # в составе VPS Snake порты комментируются
     ports:
       - 443:443
       - 80:80
-    # в составе VPS Snake сертификаты не нужны и комментируются
     volumes:
-      - ./nginx/nginx.conf.template:/etc/nginx/nginx.conf.template
-      - {{ CERT_PATH }}/fullchain.pem:/etc/nginx/fullchain.pem
-      - {{ CERT_PATH }}/privkey.pem:/etc/nginx/privkey.pem
+      - ${CERT_PATH}/fullchain.pem:/etc/nginx/fullchain.pem
+      - ${CERT_PATH}/privkey.pem:/etc/nginx/privkey.pem
     networks:
       - sas-messenger-backend-proxy-network
       - sas-messenger-database-management-network
       - sas-messenger-monitoring
-      # Раскомметировать для работы в составе VPS Snake
-      #- sites-network
     depends_on:
       - synapse
       - element
@@ -33,11 +26,12 @@ services:
   synapse:
     image: matrixdotorg/synapse:latest
     container_name: sas_messenger_matrix_synapse
+    user: "991:991"
     restart: unless-stopped
     volumes:
       - ./synapse:/data
     environment:
-      - SYNAPSE_SERVER_NAME={{ FULL_DOMAIN }}
+      - SYNAPSE_SERVER_NAME=${FULL_DOMAIN}
       - SYNAPSE_REPORT_STATS=no
     expose:
       - "8008"
@@ -51,9 +45,9 @@ services:
     container_name: sas_messenger_postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_DB={{ POSTGRES_DATABASE }}
-      - POSTGRES_USER={{ POSTGRES_USER }}
-      - POSTGRES_PASSWORD={{ POSTGRES_PASSWORD }}
+      - POSTGRES_DB=${POSTGRES_DATABASE}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     expose:
       - "5432"
@@ -73,6 +67,14 @@ services:
       - "80"
     networks:
       - sas-messenger-backend-proxy-network
+
+  turn:
+    image: instrumentisto/coturn
+    container_name: sas_messenger_turn
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - ./turn/turnserver.conf:/etc/coturn/turnserver.conf:ro
   # ----------------------- ------------------------------------
   
   # ----------------------- PGAdmin ----------------------------
@@ -83,9 +85,7 @@ services:
     env_file:
       - .env
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
-      SCRIPT_NAME: /{{ PGADMIN_PREFIX }}
+      SCRIPT_NAME: /${PGADMIN_PREFIX}
       PGADMIN_DISABLE_POSTFIX: true
       PGADMIN_LISTEN_ADDRESS: 0.0.0.0
       PGADMIN_LISTEN_PORT: 80
@@ -95,14 +95,19 @@ services:
       - sas-messenger-database-management-network
   # ------------------------------------------------------------
 
-  # ----------------------- Метрики ----------------------------
+  # ----------------------- Metrics ----------------------------
   prometheus:
     image: prom/prometheus
     container_name: sas_messenger_prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    env_file:
+      - .env
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.route-prefix=/${PROMETHEUS_PREFIX}'
+      - '--web.external-url=${PROMETHEUS_EXTERNAL_URL}'
     restart: unless-stopped
     networks:
       - sas-messenger-monitoring
@@ -120,10 +125,10 @@ services:
     volumes:
       - sas-messenger-grafana-data:/var/lib/grafana
     environment:
-      - GF_SERVER_ROOT_URL=/{{ GRAFANA_PATH_PREFIX }}
+      - GF_SERVER_ROOT_URL=/${GRAFANA_PATH_PREFIX}
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      - GF_SECURITY_ADMIN_USER={{ GRAFANA_USER }}
-      - GF_SECURITY_ADMIN_PASSWORD={{ GRAFANA_PASSWORD }}
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
     expose:
       - "3000"
     restart: unless-stopped
@@ -139,6 +144,3 @@ networks:
   sas-messenger-backend-proxy-network:
   sas-messenger-database-management-network:
   sas-messenger-monitoring:
-  # Раскомметировать для работы в составе VPS Snake
-  #sites-network:
-  #  external: true
