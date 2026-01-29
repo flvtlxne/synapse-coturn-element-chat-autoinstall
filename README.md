@@ -2,9 +2,7 @@
 
 Данный репозиторий является форком https://github.com/AntineutronVS/synapse-coturn-element-chat. Внесено множество изменений в структуру проекта, добавлена функциональность автоматической установки, снятия резервных копий и восстановления из бэкапов.
 
-## Подготовка машины
-
-Тестировалось на VPS с Debian 12 и Ubuntu 24.04. В скрипте стоит проверка ОС, на любых других дистрибутивах, кроме Ubuntu и Debian, установщик работать не будет! Крайне рекомендуется иметь как минимум 2 гигабайта RAM. Текстовые сообщения, аудио- и видеозвонки работают корректно, проверялось как на веб-версии, так и на мобильных устройствах (Android, IOS). Для корректной работы крайне рекомендуется использовать арендованный VPS, находящийся за пределами РФ.
+Тестировалось на VPS с Debian 12 и Ubuntu 24.04. В скрипте стоит проверка ОС, на любых других дистрибутивах, кроме Ubuntu и Debian, установщик работать не будет! Крайне рекомендуется иметь как минимум 2 гигабайта RAM. Текстовые сообщения, аудио- и видеозвонки работают корректно, проверялось как на веб-версии, так и на мобильных устройствах (Android, iOS). Для корректной работы крайне рекомендуется использовать арендованный VPS, находящийся за пределами РФ.
 
 ## Установка
 
@@ -42,3 +40,92 @@ docker exec -it sas_messenger_matrix_synapse register_new_matrix_user -c /data/h
 
 ## Планы на будущее
 Написать плейбук для Ansible.
+
+## Disclaimer
+
+This repository is a fork of https://github.com/AntineutronVS/synapse-coturn-element-chat. Numerous changes have been made to the project structure, and functionality for automatic installation, backup creation, and restoration from backups has been added.
+
+Tested on VPS with Debian 12 and Ubuntu 24.04.
+The script includes an OS check — the installer will not work on any distributions other than Ubuntu and Debian.
+It is strongly recommended to have at least 2 GB of RAM.
+
+Text messages, audio calls, and video calls work correctly. Testing was performed both on the web version and on mobile devices (Android, iOS).
+
+For proper operation, it is highly recommended to use a rented VPS located outside the Russian Federation.
+
+## Installation
+
+If after cloning the repository the scripts are not executable, you need to run the chmod +x command.
+
+The installation is started via ./install.sh.
+This script will:
+
+Update system packages
+
+Add swap
+
+Install Docker (if Docker is already installed on the system, this step can be skipped)
+
+Install a TLS certificate from Let’s Encrypt
+
+Create the required directories for configuration files
+
+After that, the interactive installation stage will begin, where you can set credentials for:
+
+Postgres
+
+PGAdmin
+
+Grafana
+
+Prometheus
+
+You will also be able to generate a secret for TURN.
+
+Default values are shown in square brackets. If you press Enter, the default value will be applied to the corresponding variable in the .env file.
+
+After that, you will be prompted to install systemd units for automatic TLS certificate renewal (the systemd.sh script).
+
+WARNING:
+If after the script finishes the user is not added to the docker group, you must log out of the SSH session and reconnect to the server, then verify that the user is a member of the group.
+
+## Configuration files
+
+All required configuration files will be created automatically.
+The .env file will be populated according to the data you provided during installation.
+
+You will only need to manually fill in:
+
+PUBLIC_IP_ADDR= in the .env file (the server’s external IP address)
+
+relay-ip= and external-ip= variables in the turn/turnserver.conf file
+
+## Startup
+docker compose build nginx
+docker compose up -d
+
+## Creating user uccounts
+
+User accounts are created using the following command:
+
+docker exec -it sas_messenger_matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
+
+
+The first account must have admin privileges; the rest are optional.
+
+All subsequent user accounts should also be created using this command.
+
+## Backups
+
+Backup scripts are located in the /backup directory.
+The env.tpl configuration file is also located there — you can edit it according to your needs (for example, specify a different backup storage directory or change the retention period).
+
+The install.sh script will create directories for storing backups and install a systemd unit that performs backups once per day (default time: 03:00).
+
+The backup.sh script performs the backup procedure for the Postgres, Synapse, and Element containers, then places the archives into the corresponding container directories. It also checks existing backups and removes those that exceed the value specified in the RETENTION_DAYS= variable.
+
+The restore.sh script handles the restore process. It will display all available backups, after which you need to enter the timestamp of the backup you want to restore from.
+If you simply press Enter, the most recent backup will be selected.
+
+## Future Plans
+Write an Ansible playbook.
