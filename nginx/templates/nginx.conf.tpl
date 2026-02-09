@@ -35,7 +35,6 @@ http {
 
     server {
         listen 80;
-        listen [::]:80;
         server_name ${FULL_DOMAIN};
         return 301 https://${FULL_DOMAIN}$request_uri;
     }
@@ -43,7 +42,6 @@ http {
     server {
 
         listen 443 ssl;
-        listen [::]:443;
         server_name ${FULL_DOMAIN};
 
         gzip on;
@@ -88,18 +86,20 @@ http {
         add_header X-Frame-Options DENY;
         add_header X-Content-Type-Options nosniff;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
-        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'; frame-src 'self'; connect-src 'self';";
 
         location / {
 
-            limit_req zone=weblimit burst=50;
+            limit_req zone=weblimit burst=200 nodelay;
 
             proxy_pass http://element:80;
+            proxy_http_version 1.1;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection "upgrade";
+
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-
-            add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self' 'unsafe-eval'; frame-src 'self'; connect-src 'self';";
+            proxy_set_header X-Forwarded-Proto https;
         }
 
         location ~ ^/_matrix/ {
@@ -108,11 +108,11 @@ http {
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Proto https;
 
             proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+            proxy_read_timeout 300s;
+            proxy_buffering off;
         }
 
         location ~ ^/_synapse/client/ {
@@ -121,11 +121,12 @@ http {
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade;
-            proxy_set_header Connection "upgrade";
+            proxy_set_header X-Forwarded-Proto https;
+        }
+        
+        location = /.well-known/matrix/server {
+            default_type application/json;
+            return 200 '{"m.server": "matrix.flvtlxne.space:443"}';
         }
 
         location /${PGADMIN_PREFIX} {
@@ -170,9 +171,6 @@ http {
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
-
-            proxy_hide_header Content-Security-Policy;
-            add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;" always;
 
             proxy_redirect off;
         }
