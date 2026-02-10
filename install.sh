@@ -224,51 +224,6 @@ setup_swap() {
 	sudo sysctl vm.swappiness=10
 }
 
-# ================= Let's Encrypt =================
-
-setup_certbot() {
-	msg "TLS setup (Let's Encrypt only)"
-
-	TLS_MODE="letsencrypt"
-	TLS_ENABLED="true"
-
-	setup_letsencrypt
-
-	CERT_PATH="/etc/letsencrypt/live/$FULL_DOMAIN"
-
-	echo "TLS_MODE=$TLS_MODE" | sudo tee /etc/tls-renew.conf >/dev/null
-	sudo chmod 644 /etc/tls-renew.conf
-}
-
-# ================= TLS Certificate =================
-
-setup_letsencrypt() {
-	msg "Installing certbot (Let's Encrypt)"
-
-	if [[ "$DISTR" == "debian" ]]; then
-		sudo apt install -y debian-archive-keyring
-		echo "deb http://deb.debian.org/debian $CODENAME-backports main" | \
-			sudo tee /etc/apt/sources.list.d/backports.list
-		sudo apt update -y
-		sudo apt install -y -t "$CODENAME-backports" certbot
-	else
-		sudo apt install -y certbot
-	fi
-
-	while true; do
-		read -rp "Enter FULL_DOMAIN (e.g. matrix.example.com): " FULL_DOMAIN
-		[[ -n "$FULL_DOMAIN" ]] && break
-		echo "Domain cannot be empty for Let's Encrypt"
-	done
-
-	if ! getent ahosts "$FULL_DOMAIN" >/dev/null; then
-		echo "ERROR: Domain doesn't resolve via DNS"
-		exit 1
-	fi
-
-	sudo certbot certonly --standalone -d "$FULL_DOMAIN"
-}
-
 # ================= Checking project directories =================
 
 confirm_dir() {
@@ -298,6 +253,7 @@ prepare_dirs() {
 	confirm_dir postgres
 	confirm_dir element
 	confirm_dir turn
+	confirm_dir traefik
 }
 
 # ================= Validation =================
@@ -312,6 +268,19 @@ validate_env() {
 
 setup_env_interactive() {
 	msg "Interactive env configuration"
+
+	# ---------- Domain ----------
+	echo
+	echo "Domain configuration"
+
+	read -rp "FULL_DOMAIN (e.g. matrix.example.com): " FULL_DOMAIN
+	[[ -n "$FULL_DOMAIN" ]] || {
+		echo "FULL_DOMAIN cannot be empty"
+		exit 1
+	}
+
+	TLS_ENABLED="true"
+	CERT_PATH="/letsencrypt/acme.json"
 
 	# ---------- PostgreSQL ----------
 	echo
@@ -406,6 +375,9 @@ render_templates() {
 	envsubst < templates/synapse.homeserver.yaml.tpl > synapse/homeserver.yaml
 	envsubst < templates/synapse.log.config.tpl > synapse/localhost.log.config
 	envsubst < templates/turnserver.conf.tpl > turn/turnserver.conf
+	envsubst < templates/traefik.yml.tpl > traefik/traefik.yml
+	envsubst < templates/acme.json.tpl > traefik/acme.json
+	envsubst < backup/env.tpl > backup/.env
 }
 
 require_root_or_sudo
@@ -414,7 +386,6 @@ system_update
 check_existing_docker
 install_docker
 setup_swap
-setup_certbot
 prepare_dirs
 setup_env_interactive
 validate_env
@@ -423,27 +394,15 @@ render_templates
 msg "Preparing ownership for runtime user"
 
 sudo chown -R "$RUNTIME_USER:$RUNTIME_USER" \
-	postgres element turn nginx \
+	postgres element turn traefik \
 	.env docker-compose.yml 2>/dev/null || true
 
 msg "Fixing permissions for Synapse directory"
 sudo chown -R 991:991 synapse
 sudo chmod 750 synapse
+msg "Setting permissions for acme.json"
+sudo chmod 600 traefik/acme.json
 
-
-# ================= Renew timer =================
-
-echo
-read -rp "Install and enable systemd TLS renew timer? [y/N]: " ans
-case "$ans" in
-	n|N)
-		echo "Skipping systemd setup."
-		echo "You can enable it later manually with: ./systemd.sh install"
-		;;
-	*)
-		./systemd.sh install
-		;;
-esac
 
 # ================= End of script execution =================
 
@@ -463,4 +422,4 @@ echo "	su - $RUNTIME_USER"
 echo
 echo "Please edit .env and configuration files before running containers!"
 echo
-echo "After editing the configuration files, please run the command docker compose build nginx, and then docker compose up -d"
+echo "After editing the configuration files, please run the command docker compose up -d"

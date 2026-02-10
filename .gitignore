@@ -2,8 +2,10 @@
 /synapse
 /postgres
 /turn
+/nginx
 /backup/.env
 /backup/systemd/matrix.backup.service
+/traefik
 
 docker-compose.yml
 .env

@@ -1,8 +1,0 @@
-[Unit]
-Description=Renew TLS Certificates (Let's Encrypt or self-signed)
-Wants=network-online.target docker.service
-After=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/renew-tls.sh

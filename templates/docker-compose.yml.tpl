@@ -1,31 +1,32 @@
+# ----------------------- Traefik ----------------------------
 services:
-  nginx:
-    build:
-      context: .
-      dockerfile: nginx/Dockerfile
-    image: sas-messenger-nginx:latest
-    container_name: sas_messenger_nginx
-    env_file:
-      - .env
-    ports:
-      - 443:443
-      - 80:80
-    volumes:
-      - ${CERT_PATH}/fullchain.pem:/etc/nginx/fullchain.pem
-      - ${CERT_PATH}/privkey.pem:/etc/nginx/privkey.pem
-    networks:
-      - sas-messenger-backend-proxy-network
-      - sas-messenger-database-management-network
-      - sas-messenger-monitoring
-    depends_on:
-      - synapse
-      - element
+  traefik:
+    image: traefik:v3.6.7
+    container_name: traefik
     restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/acme.json:/letsencrypt/acme.json
+    networks:
+      - backend-proxy-network
+      - monitoring
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.traefik-dashboard.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/dashboard`) || PathPrefix (`/api`)
+      - traefik.http.routers.traefik-dashboard.entrypoints=websecure
+      - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
+      - traefik.http.routers.traefik-dashboard.service=api@internal
+      - traefik.http.routers.traefik-dashboard.priority=1000
 
   # ----------------------- Element ----------------------------
   synapse:
     image: matrixdotorg/synapse:latest
-    container_name: sas_messenger_matrix_synapse
+    container_name: matrix_synapse
     user: "991:991"
     restart: unless-stopped
     volumes:
@@ -38,11 +39,21 @@ services:
     depends_on:
       - postgres
     networks:
-      - sas-messenger-backend-proxy-network
+      - backend-proxy-network
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.synapse.rule=Host(`${FULL_DOMAIN}`) && (PathPrefix(`/_matrix`) || PathPrefix(`/_synapse`))
+      - traefik.http.routers.synapse.entrypoints=websecure
+      - traefik.http.routers.synapse.tls.certresolver=letsencrypt
+      - traefik.http.routers.synapse.service=synapse
+
+      - traefik.http.services.synapse.loadbalancer.server.port=8008
+
 
   postgres:
     image: postgres:15
-    container_name: sas_messenger_postgres
+    container_name: postgres
     restart: unless-stopped
     environment:
       - POSTGRES_DB=${POSTGRES_DATABASE}
@@ -54,8 +65,8 @@ services:
     volumes:
       - ./postgres:/var/lib/postgresql/data
     networks:
-      - sas-messenger-backend-proxy-network
-      - sas-messenger-database-management-network
+      - backend-proxy-network
+      - database-management-network
 
   element:
     image: vectorim/element-web:latest
@@ -66,21 +77,50 @@ services:
     expose:
       - "80"
     networks:
-      - sas-messenger-backend-proxy-network
+      - backend-proxy-network
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.element.rule=Host(`${FULL_DOMAIN}`)
+      - traefik.http.routers.element.entrypoints=websecure
+      - traefik.http.routers.element.tls.certresolver=letsencrypt
+      - traefik.http.routers.element.priority=1
+
+      - traefik.http.services.element.loadbalancer.server.port=80
 
   turn:
     image: instrumentisto/coturn
-    container_name: sas_messenger_turn
+    container_name: turn
     restart: unless-stopped
     network_mode: "host"
     volumes:
       - ./turn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+
+  matrix-wellknown:
+    image: traefik/whoami
+    container_name: matrix_wellknown
+    restart: unless-stopped
+    networks:
+      - backend-proxy-network
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.matrix-wellknown.rule=Host(`synapse.flvtlxne.space`) && Path(`/.well-known/matrix/server`)
+      - traefik.http.routers.matrix-wellknown.entrypoints=websecure
+      - traefik.http.routers.matrix-wellknown.tls.certresolver=letsencrypt
+
+      - traefik.http.middlewares.matrix-server-headers.customResponseHeaders.Content-Type=application/json
+
+      - traefik.http.middlewares.matrix-server-rewrite.replacepathregex.regex=.*
+      - traefik.http.middlewares.matrix-server-rewrite.replacepathregex.replacement=/
+
+      - traefik.http.routers.matrix-wellknown.middlewares=matrix-server-headers,matrix-server-rewrite
   # ----------------------- ------------------------------------
   
   # ----------------------- PGAdmin ----------------------------
   pgadmin:
     image: dpage/pgadmin4
-    container_name: sas_messenger_pgadmin
+    container_name: pgadmin
     restart: unless-stopped
     env_file:
       - .env
@@ -90,15 +130,24 @@ services:
       PGADMIN_LISTEN_ADDRESS: 0.0.0.0
       PGADMIN_LISTEN_PORT: 80
     volumes:
-      - sas-messenger-pg-admin-data:/var/lib/pgadmin
+      - pg-admin-data:/var/lib/pgadmin
     networks:
-      - sas-messenger-database-management-network
+      - database-management-network
+      - backend-proxy-network
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.pgadmin.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/pgadmin`)
+      - traefik.http.routers.pgadmin.entrypoints=websecure
+      - traefik.http.routers.pgadmin.tls.certresolver=letsencrypt
+
+      - traefik.http.services.pgadmin.loadbalancer.server.port=80
   # ------------------------------------------------------------
 
   # ----------------------- Metrics ----------------------------
   prometheus:
     image: prom/prometheus
-    container_name: sas_messenger_prometheus
+    container_name: prometheus
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
     env_file:
@@ -110,20 +159,28 @@ services:
       - '--web.external-url=${PROMETHEUS_EXTERNAL_URL}'
     restart: unless-stopped
     networks:
-      - sas-messenger-monitoring
+      - monitoring
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.prometheus.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/prometheus`)
+      - traefik.http.routers.prometheus.entrypoints=websecure
+      - traefik.http.routers.prometheus.tls.certresolver=letsencrypt
+
+      - traefik.http.services.prometheus.loadbalancer.server.port=9090
 
   node-exporter:
     image: prom/node-exporter
-    container_name: sas_messenger_node_exporter
+    container_name: node_exporter
     restart: unless-stopped
     networks:
-      - sas-messenger-monitoring
+      - monitoring
 
   grafana:
     image: grafana/grafana
-    container_name: sas-messenger-grafana
+    container_name: grafana
     volumes:
-      - sas-messenger-grafana-data:/var/lib/grafana
+      - grafana-data:/var/lib/grafana
     environment:
       - GF_SERVER_ROOT_URL=/${GRAFANA_PATH_PREFIX}
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
@@ -133,14 +190,22 @@ services:
       - "3000"
     restart: unless-stopped
     networks:
-      - sas-messenger-monitoring
+      - monitoring
+    labels:
+      - traefik.enable=true
+
+      - traefik.http.routers.grafana.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/grafana`)
+      - traefik.http.routers.grafana.entrypoints=websecure
+      - traefik.http.routers.grafana.tls.certresolver=letsencrypt
+
+      - traefik.http.services.grafana.loadbalancer.server.port=3000
   # ---------------------------------------------------------
   
 volumes:
-  sas-messenger-pg-admin-data:
-  sas-messenger-grafana-data:
+  pg-admin-data:
+  grafana-data:
 
 networks:
-  sas-messenger-backend-proxy-network:
-  sas-messenger-database-management-network:
-  sas-messenger-monitoring:
+  backend-proxy-network:
+  database-management-network:
+  monitoring:
