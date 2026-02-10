@@ -1,7 +1,5 @@
 ## Дисклеймер
 
-Данный репозиторий является форком https://github.com/AntineutronVS/synapse-coturn-element-chat. Внесено множество изменений в структуру проекта, добавлена функциональность автоматической установки, снятия резервных копий и восстановления из бэкапов.
-
 Тестировалось на VPS с Debian 12 и Ubuntu 24.04. В скрипте стоит проверка ОС, на любых других дистрибутивах, кроме Ubuntu и Debian, установщик работать не будет! Крайне рекомендуется иметь как минимум 2 гигабайта RAM. Текстовые сообщения, аудио- и видеозвонки работают корректно, проверялось как на веб-версии, так и на мобильных устройствах (Android, iOS). Для корректной работы настоятельно рекомендуется использовать арендованный VPS, находящийся за пределами РФ.
 
 ## Установка
@@ -41,8 +39,6 @@ docker exec -it matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
 Написать плейбук для Ansible.
 
 ## Disclaimer
-
-This repository is a fork of https://github.com/AntineutronVS/synapse-coturn-element-chat. Numerous changes have been made to the project structure, and functionality for automatic installation, backup creation, and restoration from backups has been added.
 
 Tested on VPS with Debian 12 and Ubuntu 24.04.
 The script includes an OS check — the installer will not work on any distributions other than Ubuntu and Debian.
