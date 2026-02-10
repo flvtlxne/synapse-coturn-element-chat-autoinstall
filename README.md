@@ -2,13 +2,13 @@
 
 Данный репозиторий является форком https://github.com/AntineutronVS/synapse-coturn-element-chat. Внесено множество изменений в структуру проекта, добавлена функциональность автоматической установки, снятия резервных копий и восстановления из бэкапов.
 
-Тестировалось на VPS с Debian 12 и Ubuntu 24.04. В скрипте стоит проверка ОС, на любых других дистрибутивах, кроме Ubuntu и Debian, установщик работать не будет! Крайне рекомендуется иметь как минимум 2 гигабайта RAM. Текстовые сообщения, аудио- и видеозвонки работают корректно, проверялось как на веб-версии, так и на мобильных устройствах (Android, iOS). Для корректной работы крайне рекомендуется использовать арендованный VPS, находящийся за пределами РФ.
+Тестировалось на VPS с Debian 12 и Ubuntu 24.04. В скрипте стоит проверка ОС, на любых других дистрибутивах, кроме Ubuntu и Debian, установщик работать не будет! Крайне рекомендуется иметь как минимум 2 гигабайта RAM. Текстовые сообщения, аудио- и видеозвонки работают корректно, проверялось как на веб-версии, так и на мобильных устройствах (Android, iOS). Для корректной работы настоятельно рекомендуется использовать арендованный VPS, находящийся за пределами РФ.
 
 ## Установка
 
 Если после клонирования репозитория скрипты не являются исполняемыми, то необходимо выполнить команду `chmod +x`.
 
-Запуск установки выполняется через `./install.sh`, данный скрипт обновит системные пакеты, добавит swap, установит Docker (если уже установлен на системе - можно данный шаг пропустить), установит TLS-сертификат от Let's Encrypt, создаст необходимые для конфигурационных файлов директории. После чего начнётся этап интерактивной установки, где Вы сможете задать креды для Postgres, PGAdmin, Grafana, Prometheus, сгенерировать секрет для TURN. В квадратных скобках написаны дефолтные значения, если нажать Enter, то применится дефолтное значение для переменной в файле .env. После этого будет предложено установить systemd-юниты для автоматического обновления TLS-сертификата (скрипт `systemd.sh`).
+Запуск установки выполняется через `./install.sh`, данный скрипт обновит системные пакеты, добавит swap, установит Docker (если уже установлен на системе - можно данный шаг пропустить), установит TLS-сертификат от Let's Encrypt, создаст необходимые для конфигурационных файлов директории. После чего начнётся этап интерактивной установки, где Вы сможете задать креды для Postgres, PGAdmin, Grafana, Prometheus, сгенерировать секрет для TURN. В квадратных скобках написаны дефолтные значения, если нажать Enter, то применится дефолтное значение для переменной в файле .env.
 
 ВАЖНО: если вдруг после завершения скрипта пользователь не будет добавлен в группу docker, то необходимо выйти из SSH-сессии и переподключиться к серверу, после чего проверить наличие пользователя в группе.
 
@@ -19,7 +19,6 @@
 ## Запуск
 
 ```bash
-docker compose build nginx
 docker compose up -d
 ```
 
@@ -28,7 +27,7 @@ docker compose up -d
 Учётные записи пользователей создаются следующей командой:
 
 ```
-docker exec -it sas_messenger_matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
+docker exec -it matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
 ```
 Первая учётная запись должна иметь админские права, остальные - по желанию.
 
@@ -84,8 +83,6 @@ You will also be able to generate a secret for TURN.
 
 Default values are shown in square brackets. If you press Enter, the default value will be applied to the corresponding variable in the .env file.
 
-After that, you will be prompted to install systemd units for automatic TLS certificate renewal (the `systemd.sh` script).
-
 WARNING:
 If after the script finishes the user is not added to the docker group, you must log out of the SSH session and reconnect to the server, then verify that the user is a member of the group.
 
@@ -103,7 +100,6 @@ You will only need to manually fill in:
 ## Startup
 
 ```bash
-docker compose build nginx
 docker compose up -d
 ```
 
@@ -112,7 +108,7 @@ docker compose up -d
 User accounts are created using the following command:
 
 ```bash
-docker exec -it sas_messenger_matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
+docker exec -it matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
 ```
 
 The first account must have admin privileges; the rest are optional.
