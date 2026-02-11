@@ -377,6 +377,7 @@ render_templates() {
 	envsubst < templates/turnserver.conf.tpl > turn/turnserver.conf
 	envsubst < templates/traefik.yml.tpl > traefik/traefik.yml
 	envsubst < templates/acme.json.tpl > traefik/acme.json
+	envsubst < templates/prometheus.yml.tpl > prometheus.yml
 	envsubst < backup/env.tpl > backup/.env
 }
 
