@@ -169,6 +169,23 @@ services:
 
       - traefik.http.services.prometheus.loadbalancer.server.port=9090
 
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    expose:
+      - "8080"
+    restart: unless-stopped
+    privileged: true
+    devices:
+      - /dev/kmsg
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker:/var/lib/docker:ro
+    networks:
+      - monitoring
+
   node-exporter:
     image: prom/node-exporter
     container_name: node_exporter
