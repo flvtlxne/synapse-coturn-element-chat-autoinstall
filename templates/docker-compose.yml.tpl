@@ -20,7 +20,7 @@ services:
 
   # ----------------------- Element ----------------------------
   synapse:
-    image: matrixdotorg/synapse:latest
+    image: matrixdotorg/synapse:v1.147.1
     container_name: matrix_synapse
     user: "991:991"
     restart: unless-stopped
@@ -63,7 +63,7 @@ services:
       - database-management-network
 
   element:
-    image: vectorim/element-web:latest
+    image: vectorim/element-web:v1.12.10
     container_name: matrix_element
     restart: unless-stopped
     volumes:
@@ -149,12 +149,11 @@ services:
       - traefik.http.routers.prometheus.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/prometheus`)
       - traefik.http.routers.prometheus.entrypoints=websecure
       - traefik.http.routers.prometheus.tls.certresolver=letsencrypt
-      - traefik.http.routers.prometheus.middlewares=basic-auth@file
 
       - traefik.http.services.prometheus.loadbalancer.server.port=9090
 
   cadvisor:
-    image: ghcr.io/google/cadvisor:latest
+    image: gcr.io/cadvisor/cadvisor:v0.51.0
     container_name: cadvisor
     expose:
       - "8080"
@@ -198,7 +197,6 @@ services:
       - traefik.http.routers.grafana.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/grafana`)
       - traefik.http.routers.grafana.entrypoints=websecure
       - traefik.http.routers.grafana.tls.certresolver=letsencrypt
-      - traefik.http.routers.grafana.middlewares=basic-auth@file
 
       - traefik.http.services.grafana.loadbalancer.server.port=3000
 

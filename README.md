@@ -16,7 +16,7 @@
 
 ## Basic Auth
 
-Т.к. для дашборда Traefik, Grafana, Prometheus и PGAdmin используется Basic Auth, то сперва нужно сгенерировать креды. Сделать это можно следующей командой:
+Т.к. для дашборда Traefik и PGAdmin используется Basic Auth, то сперва нужно сгенерировать креды. Сделать это можно следующей командой:
 
 ```bash
 htpasswd -nb USERNAME PASSWORD
@@ -117,7 +117,7 @@ You will only need to manually fill in:
 
 ## Basic Auth
 
-Since Traefik Dashboard, Grafana, Prometheus, and PGAdmin are protected using HTTP Basic Auth, credentials must be generated before accessing these services. Credentials can be generated using the following command:
+Since Traefik Dashboard and PGAdmin are protected using HTTP Basic Auth, credentials must be generated before accessing these services. Credentials can be generated using the following command:
 
 `htpasswd -nb USERNAME PASSWORD`
 
