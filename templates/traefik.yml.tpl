@@ -12,6 +12,10 @@ providers:
   docker:
     exposedByDefault: false
 
+  file:
+    directory: /etc/traefik/dynamic
+    watch: true
+
 certificatesResolvers:
   letsencrypt:
     acme:

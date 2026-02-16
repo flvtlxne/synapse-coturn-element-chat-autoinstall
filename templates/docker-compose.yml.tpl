@@ -11,17 +11,12 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/acme.json:/letsencrypt/acme.json
+      - ./traefik/dynamic:/etc/traefik/dynamic:ro
     networks:
       - backend-proxy-network
       - monitoring
     labels:
       - traefik.enable=true
-
-      - traefik.http.routers.traefik-dashboard.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/dashboard`) || PathPrefix (`/api`)
-      - traefik.http.routers.traefik-dashboard.entrypoints=websecure
-      - traefik.http.routers.traefik-dashboard.tls.certresolver=letsencrypt
-      - traefik.http.routers.traefik-dashboard.service=api@internal
-      - traefik.http.routers.traefik-dashboard.priority=1000
 
   # ----------------------- Element ----------------------------
   synapse:
@@ -46,7 +41,6 @@ services:
       - traefik.http.routers.synapse.rule=Host(`${FULL_DOMAIN}`) && (PathPrefix(`/_matrix`) || PathPrefix(`/_synapse`))
       - traefik.http.routers.synapse.entrypoints=websecure
       - traefik.http.routers.synapse.tls.certresolver=letsencrypt
-      - traefik.http.routers.synapse.service=synapse
 
       - traefik.http.services.synapse.loadbalancer.server.port=8008
 
@@ -84,7 +78,6 @@ services:
       - traefik.http.routers.element.rule=Host(`${FULL_DOMAIN}`)
       - traefik.http.routers.element.entrypoints=websecure
       - traefik.http.routers.element.tls.certresolver=letsencrypt
-      - traefik.http.routers.element.priority=1
 
       - traefik.http.services.element.loadbalancer.server.port=80
 
@@ -102,20 +95,8 @@ services:
     restart: unless-stopped
     networks:
       - backend-proxy-network
-    labels:
-      - traefik.enable=true
 
-      - traefik.http.routers.matrix-wellknown.rule=Host(`synapse.flvtlxne.space`) && Path(`/.well-known/matrix/server`)
-      - traefik.http.routers.matrix-wellknown.entrypoints=websecure
-      - traefik.http.routers.matrix-wellknown.tls.certresolver=letsencrypt
-
-      - traefik.http.middlewares.matrix-server-headers.customResponseHeaders.Content-Type=application/json
-
-      - traefik.http.middlewares.matrix-server-rewrite.replacepathregex.regex=.*
-      - traefik.http.middlewares.matrix-server-rewrite.replacepathregex.replacement=/
-
-      - traefik.http.routers.matrix-wellknown.middlewares=matrix-server-headers,matrix-server-rewrite
-  # ----------------------- ------------------------------------
+  # ------------------------------------------------------------
   
   # ----------------------- PGAdmin ----------------------------
   pgadmin:
@@ -140,8 +121,10 @@ services:
       - traefik.http.routers.pgadmin.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/pgadmin`)
       - traefik.http.routers.pgadmin.entrypoints=websecure
       - traefik.http.routers.pgadmin.tls.certresolver=letsencrypt
+      - traefik.http.routers.pgadmin.middlewares=basic-auth@file
 
       - traefik.http.services.pgadmin.loadbalancer.server.port=80
+
   # ------------------------------------------------------------
 
   # ----------------------- Metrics ----------------------------
@@ -166,11 +149,12 @@ services:
       - traefik.http.routers.prometheus.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/prometheus`)
       - traefik.http.routers.prometheus.entrypoints=websecure
       - traefik.http.routers.prometheus.tls.certresolver=letsencrypt
+      - traefik.http.routers.prometheus.middlewares=basic-auth@file
 
       - traefik.http.services.prometheus.loadbalancer.server.port=9090
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
+    image: ghcr.io/google/cadvisor:latest
     container_name: cadvisor
     expose:
       - "8080"
@@ -214,8 +198,10 @@ services:
       - traefik.http.routers.grafana.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/grafana`)
       - traefik.http.routers.grafana.entrypoints=websecure
       - traefik.http.routers.grafana.tls.certresolver=letsencrypt
+      - traefik.http.routers.grafana.middlewares=basic-auth@file
 
       - traefik.http.services.grafana.loadbalancer.server.port=3000
+
   # ---------------------------------------------------------
   
 volumes:
