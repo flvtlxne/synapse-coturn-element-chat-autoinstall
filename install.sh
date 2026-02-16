@@ -60,6 +60,15 @@ system_update () {
 	sudo apt clean -y
 }
 
+# ================= Required utilities =================
+
+install_required_utils () {
+	msg "Installing required utilities"
+
+	sudo apt install -y \
+		apache2-utils
+}
+
 # ================= Docker checks =================
 
 docker_installed() {
@@ -388,6 +397,7 @@ render_templates() {
 require_root_or_sudo
 detect_os
 system_update
+install_required_utils
 check_existing_docker
 install_docker
 setup_swap

@@ -14,6 +14,28 @@
 
 Все необходимые конфиги создатутся автоматически, файл .env будет заполнен в соответствии с Вашими данными, которые Вы указали в процессе установки. Заполнить нужно будет только переменную `PUBLIC_IP_ADDR=` в `.env` (внешний IP-адрес сервера), а также переменные `relay-ip=` и `external-ip=` в файле `turn/turnserver.conf`.
 
+## Basic Auth
+
+Т.к. для дашборда Traefik, Grafana, Prometheus и PGAdmin используется Basic Auth, то сперва нужно сгенерировать креды. Сделать это можно следующей командой:
+
+```bash
+htpasswd -nb USERNAME PASSWORD
+```
+
+Полученный результат необходимо вставить в файл `traefik/dynamic/auth.yml`.
+
+Пример заполненного файла `traefik/dynamic/auth.yml` (для кредов username:password):
+
+```http:
+  middlewares:
+    basic-auth:
+      basicAuth:
+        users:
+          - "username:$apr1$8XebVOSJ$p3q4OyAscRg4hKiIqyTaN0"
+```
+
+Остальные пользователи добавляются следующей строкой. Все изменения, вносящиеся в файлы `traefik/dynamic/auth.yml`, `traefik/dynamic/dashboard.yml` и `traefik/dynamic/matrix-wellknown.yml`, не требуют перезапуска контейнера `traefik` и подхватываются им автоматически.
+
 ## Запуск
 
 ```bash
@@ -92,6 +114,28 @@ You will only need to manually fill in:
 `PUBLIC_IP_ADDR=` in the `.env` file (the server’s external IP address)
 
 `relay-ip=` and `external-ip=` variables in the `turn/turnserver.conf` file
+
+## Basic Auth
+
+Since Traefik Dashboard, Grafana, Prometheus, and PGAdmin are protected using HTTP Basic Auth, credentials must be generated before accessing these services. Credentials can be generated using the following command:
+
+`htpasswd -nb USERNAME PASSWORD`
+
+The output of this command must be added to the file `traefik/dynamic/auth.yml`
+
+Example auth.yml configuration (username:password):
+
+```http:
+  middlewares:
+    basic-auth:
+      basicAuth:
+        users:
+          - "username:$apr1$8XebVOSJ$p3q4OyAscRg4hKiIqyTaN0"
+```
+
+Additional users can be added by appending new entries to the users list.
+
+Any changes made to the files `traefik/dynamic/auth.yml`, `traefik/dynamic/dashboard.yml` and `traefik/dynamic/matrix-wellknown.yml` do not require restarting the traefik container. Traefik automatically detects and applies changes to dynamic configuration files at runtime.
 
 ## Startup
 
