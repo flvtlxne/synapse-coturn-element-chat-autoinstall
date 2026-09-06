@@ -389,9 +389,9 @@ render_templates() {
 	envsubst < templates/acme.json.tpl > traefik/acme.json
 	envsubst < templates/prometheus.yml.tpl > prometheus.yml
 	envsubst < backup/env.tpl > backup/.env
-	envsubst < traefik/dynamic/auth.yml.tpl > traefik/dynamic/auth.yml
-	envsubst < traefik/dynamic/dashboard.yml.tpl > traefik/dynamic/dashboard.yml
-	envsubst < traefik/dynamic/matrix-wellknown.yml.tpl > traefik/dynamic/matrix-wellknown.yml
+	envsubst < traefik/templates/auth.yml.tpl > traefik/dynamic/auth.yml
+	envsubst < traefik/templates/dashboard.yml.tpl > traefik/dynamic/dashboard.yml
+	envsubst < traefik/templates/matrix-wellknown.yml.tpl > traefik/dynamic/matrix-wellknown.yml
 }
 
 require_root_or_sudo
