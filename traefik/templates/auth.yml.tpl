@@ -3,3 +3,4 @@ http:
     basic-auth:
       basicAuth:
         users:
+            - "${TRAEFIK_BASIC_AUTH}"

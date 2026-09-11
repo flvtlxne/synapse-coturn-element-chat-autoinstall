@@ -1,5 +1,5 @@
 # ================= IP address =================
-PUBLIC_IP_ADDR=
+PUBLIC_IP_ADDR=${PUBLIC_IP_ADDR}
 
 # ================= PostgreSQL =================
 POSTGRES_PASSWORD=${POSTGRES_PASSWORD}

@@ -50,6 +50,20 @@ detect_os() {
 	echo "Detected OS: $PRETTY_NAME"
 }
 
+# ================= Public IP detection =================
+
+detect_public_ip() {
+    local ip=""
+
+    ip="$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.*src \([0-9.]*\).*/\1/p' | head -n1)"
+
+    if [[ -z "$ip" ]]; then
+        ip="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
+    fi
+
+    printf '%s' "$ip"
+}
+
 # ================= Updates =================
 
 system_update () {
@@ -66,7 +80,9 @@ install_required_utils () {
 	msg "Installing required utilities"
 
 	sudo apt install -y \
-		apache2-utils
+		apache2-utils \
+        curl \
+        gettext-base
 }
 
 # ================= Docker checks =================
@@ -262,7 +278,7 @@ prepare_dirs() {
 	confirm_dir postgres
 	confirm_dir element
 	confirm_dir turn
-	confirm_dir traefik
+	mkdir -p traefik
 	confirm_dir traefik/dynamic
 }
 
@@ -278,6 +294,24 @@ validate_env() {
 
 setup_env_interactive() {
 	msg "Interactive env configuration"
+
+    # ---------- Public IP ----------
+    echo
+    echo "Public IP configuration"
+
+    DETECTED_IP="$(detect_public_ip)"
+
+    if [[ -n "$DETECTED_IP" ]]; then
+        read -rp "PUBLIC_IP_ADDR [$DETECTED_IP]: " input
+        PUBLIC_IP_ADDR="${input:-$DETECTED_IP}"
+    else
+        read -rp "PUBLIC_IP_ADDR (autodetect failed): " PUBLIC_IP_ADDR
+    fi
+
+    [[ -n "$PUBLIC_IP_ADDR" ]] || {
+        echo "PUBLIC_IP_ADDR cannot be empty"
+        exit 1
+    }
 
 	# ---------- Domain ----------
 	echo
@@ -339,6 +373,30 @@ setup_env_interactive() {
 		exit 1
 	}
 
+    # ---------- Traefik basic auth ----------
+    echo
+    echo "Traefik dashboard authentication"
+
+    read -rp "TRAEFIK_AUTH_USER [admin]: " input
+    TRAEFIK_AUTH_USER="${input:-admin}"
+
+    read -rsp "TRAEFIK_AUTH_PASSWORD: " TRAEFIK_AUTH_PASSWORD
+    echo
+    [[ -n "$TRAEFIK_AUTH_PASSWORD" ]] || {
+        echo "TRAEFIK_AUTH_PASSWORD cannot be empty"
+        exit 1
+    }
+
+    read -rsp "Repeat TRAEFIK_AUTH_PASSWORD: " input
+    echo
+    [[ "$TRAEFIK_AUTH_PASSWORD" == "$input" ]] || {
+        echo "Passwords do not match"
+        exit 1
+    }
+
+    TRAEFIK_BASIC_AUTH="$(htpasswd -nbB -C 10 "$TRAEFIK_AUTH_USER" "$TRAEFIK_AUTH_PASSWORD" )"
+    unset TRAEFIK_AUTH_PASSWORD
+
 	# ---------- Grafana ----------
 	echo
 	echo "Grafana configuration"
@@ -365,10 +423,12 @@ setup_env_interactive() {
 
 	# ---------- Export ----------
 	export \
+        PUBLIC_IP_ADDR \
 		FULL_DOMAIN CERT_PATH TLS_ENABLED \
 		POSTGRES_DATABASE POSTGRES_USER POSTGRES_PASSWORD \
 		TURN_RANDOM_SECRET \
 		PGADMIN_PREFIX PGADMIN_DEFAULT_EMAIL PGADMIN_DEFAULT_PASSWORD \
+        TRAEFIK_AUTH_USER TRAEFIK_BASIC_AUTH \
 		GRAFANA_PATH_PREFIX GRAFANA_USER GRAFANA_PASSWORD \
 		PROMETHEUS_PREFIX PROMETHEUS_EXTERNAL_URL
 
@@ -417,6 +477,11 @@ sudo chown -R 991:991 synapse
 sudo chmod 750 synapse
 msg "Setting permissions for acme.json"
 sudo chmod 600 traefik/acme.json
+
+msg "Restricting permissions for secrets"
+sudo chmod 600 .env backup/.env 2>/dev/null || true
+sudo chmod 600 traefik/dynamic/auth.yml
+sudo chmod 600 turn/turnserver.conf
 
 
 # ================= End of script execution =================

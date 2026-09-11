@@ -7,7 +7,9 @@
 /backup/systemd/matrix.backup.service
 /traefik/traefik.yml
 /traefik/acme.json
-/traefik/dynamic
+/traefik/dynamic/auth.yml
+/traefik/dynamic/dashboard.yml
+/traefik/dynamic/matrix-wellknown.yml
 
 docker-compose.yml
 .env
