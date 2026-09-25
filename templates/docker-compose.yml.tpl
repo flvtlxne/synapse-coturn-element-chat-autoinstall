@@ -175,6 +175,11 @@ services:
     restart: unless-stopped
     networks:
       - monitoring
+    pid: host
+    command:
+      - "--path.rootfs=/host"
+    volumes:
+      - "/:/host:ro,rslave"
 
   grafana:
     image: grafana/grafana
