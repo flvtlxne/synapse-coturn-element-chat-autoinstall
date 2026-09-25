@@ -25,7 +25,7 @@ docker compose up -d
 Учётные записи пользователей создаются следующей командой:
 
 ```
-docker exec -it matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
+./create-matrix-user.sh
 ```
 Первая учётная запись должна иметь админские права, остальные - по желанию.
 
@@ -98,7 +98,7 @@ docker compose up -d
 User accounts are created using the following command:
 
 ```bash
-docker exec -it matrix_synapse register_new_matrix_user -c /data/homeserver.yaml
+./create-matrix-user.sh
 ```
 
 The first account must have admin privileges; the rest are optional.
