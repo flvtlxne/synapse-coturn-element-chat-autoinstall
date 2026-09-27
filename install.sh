@@ -412,7 +412,7 @@ render_templates() {
 open_firewall_ports() {
 	msg "Configuring firewall (ufw)"
 
-	if ! command -v ufw >/dev/null 2>&1 || ! sudo ufw status | grep -q "Status: active"; then
+	if ! sudo ufw status 2>/dev/null | grep -q "Status: active"; then
 		echo "ufw is not installed or not active, skipping."
 		echo "If you use another firewall, open: 80/tcp, 443/tcp, 3478/tcp+udp, ${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
 		return
