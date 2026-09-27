@@ -7,6 +7,7 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      - "127.0.0.1:8080:8080"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
@@ -14,7 +15,6 @@ services:
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
     networks:
       - backend-proxy-network
-      - monitoring
     labels:
       - traefik.enable=true
 
@@ -106,24 +106,15 @@ services:
     env_file:
       - .env
     environment:
-      SCRIPT_NAME: /${PGADMIN_PREFIX}
       PGADMIN_DISABLE_POSTFIX: true
       PGADMIN_LISTEN_ADDRESS: 0.0.0.0
       PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "127.0.0.1:5050:80"
     volumes:
       - pg-admin-data:/var/lib/pgadmin
     networks:
       - database-management-network
-      - backend-proxy-network
-    labels:
-      - traefik.enable=true
-
-      - traefik.http.routers.pgadmin.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/pgadmin`)
-      - traefik.http.routers.pgadmin.entrypoints=websecure
-      - traefik.http.routers.pgadmin.tls.certresolver=letsencrypt
-      - traefik.http.routers.pgadmin.middlewares=basic-auth@file
-
-      - traefik.http.services.pgadmin.loadbalancer.server.port=80
 
   # ------------------------------------------------------------
 
@@ -131,26 +122,18 @@ services:
   prometheus:
     image: prom/prometheus
     container_name: prometheus
+    restart: unless-stopped
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    env_file:
-      - .env
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--web.route-prefix=/${PROMETHEUS_PREFIX}'
-      - '--web.external-url=${PROMETHEUS_EXTERNAL_URL}'
-    restart: unless-stopped
+      - '--storage.tsdb.retention.time=30d'
+    ports:
+      - "127.0.0.1:9090:9090"
     networks:
       - monitoring
-    labels:
-      - traefik.enable=true
-
-      - traefik.http.routers.prometheus.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/prometheus`)
-      - traefik.http.routers.prometheus.entrypoints=websecure
-      - traefik.http.routers.prometheus.tls.certresolver=letsencrypt
-
-      - traefik.http.services.prometheus.loadbalancer.server.port=9090
 
   cadvisor:
     image: gcr.io/cadvisor/cadvisor:v0.51.0
@@ -184,32 +167,26 @@ services:
   grafana:
     image: grafana/grafana
     container_name: grafana
+    restart: unless-stopped
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
     environment:
-      - GF_SERVER_ROOT_URL=/${GRAFANA_PATH_PREFIX}
-      - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
-    expose:
-      - "3000"
-    restart: unless-stopped
+      - GF_USERS_ALLOW_SIGN_UP=false
+    ports:
+      - "127.0.0.1:3000:3000"
     networks:
       - monitoring
-    labels:
-      - traefik.enable=true
-
-      - traefik.http.routers.grafana.rule=Host(`${FULL_DOMAIN}`) && PathPrefix(`/grafana`)
-      - traefik.http.routers.grafana.entrypoints=websecure
-      - traefik.http.routers.grafana.tls.certresolver=letsencrypt
-
-      - traefik.http.services.grafana.loadbalancer.server.port=3000
 
   # ---------------------------------------------------------
   
 volumes:
   pg-admin-data:
   grafana-data:
+  prometheus-data:
 
 networks:
   backend-proxy-network:

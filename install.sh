@@ -2,9 +2,11 @@
 set -eu
 (set -o pipefail) 2>/dev/null && set -o pipefail
 
-# ================= Swap size =================
+# ================= Settings =================
 
 SWAP_SIZE="3G"
+TURN_MIN_PORT="49160"
+TURN_MAX_PORT="49200"
 
 msg() {
 	echo -e "\n=== $1 ==="
@@ -53,20 +55,20 @@ detect_os() {
 # ================= Public IP detection =================
 
 detect_public_ip() {
-    local ip=""
+	local ip=""
 
-    ip="$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.*src \([0-9.]*\).*/\1/p' | head -n1)"
+	ip="$(ip -4 route get 1.1.1.1 2>/dev/null | sed -n 's/.*src \([0-9.]*\).*/\1/p' | head -n1)"
 
-    if [[ -z "$ip" ]]; then
-        ip="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
-    fi
+	if [[ -z "$ip" ]]; then
+		ip="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
+	fi
 
-    printf '%s' "$ip"
+	printf '%s' "$ip"
 }
 
 # ================= Updates =================
 
-system_update () {
+system_update() {
 	msg "System update"
 	sudo apt update -y
 	sudo apt upgrade -y
@@ -76,13 +78,13 @@ system_update () {
 
 # ================= Required utilities =================
 
-install_required_utils () {
+install_required_utils() {
 	msg "Installing required utilities"
 
 	sudo apt install -y \
-		apache2-utils \
-        curl \
-        gettext-base
+		curl \
+		gettext-base \
+		openssl
 }
 
 # ================= Docker checks =================
@@ -117,10 +119,6 @@ docker_compose_installed() {
 	return 1
 }
 
-docker_group_exists() {
-	getent group docker >/dev/null 2>&1
-}
-
 ensure_docker_group() {
 	if ! getent group docker >/dev/null 2>&1; then
 		echo "Creating docker group..."
@@ -132,13 +130,10 @@ ensure_docker_group() {
 		sudo usermod -aG docker "$RUNTIME_USER"
 		echo
 		echo "Docker group was updated."
-		echo "You must log out and log in again before continuing."
-		echo
-		echo "Then run:"
-		echo "	docker compose up -d"
+		echo "You must log out and log in again, then run ./install.sh again."
 		exit 0
 	fi
-		
+
 	echo "User $RUNTIME_USER already in docker group."
 }
 
@@ -157,7 +152,7 @@ check_existing_docker() {
 				echo "WARNING: Docker Compose plugin not found!"
 			fi
 
-			read -rp "Skip Docker installation? [y/N]: " ans
+			read -rp "Skip Docker installation? [Y/n]: " ans
 			case "$ans" in
 				n|N)
 					SKIP_DOCKER_INSTALL="false"
@@ -171,9 +166,9 @@ check_existing_docker() {
 			echo
 			echo "ERROR: Docker daemon is not accessible."
 			echo "This may be caused by:"
-			echo "	- Docker not running;"
-			echo "	- Current user not in docker group;"
-			echo "	- Insufficient permissions to /var/run/docker.sock"
+			echo "  - Docker not running;"
+			echo "  - Current user not in docker group;"
+			echo "  - Insufficient permissions to /var/run/docker.sock"
 			exit 1
 		fi
 	fi
@@ -200,7 +195,7 @@ install_docker() {
 	sudo mkdir -p /etc/apt/keyrings
 
 	curl -fsSL "https://download.docker.com/linux/$DISTR/gpg" | \
-		sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+		sudo gpg --dearmor --yes -o /etc/apt/keyrings/docker.gpg
 
 	echo \
 		"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
@@ -223,8 +218,7 @@ install_docker() {
 
 	echo
 	echo "Docker installed and user added to docker group."
-	echo "Please log out and log in again, then run:"
-	echo "	docker compose up -d"
+	echo "Please log out and log in again, then run ./install.sh again."
 	exit 0
 }
 
@@ -267,7 +261,7 @@ confirm_dir() {
 		esac
 	else
 		mkdir -p "$dir"
-	fi 
+	fi
 }
 
 # ================= Preparing project directories =================
@@ -283,6 +277,7 @@ prepare_dirs() {
 }
 
 # ================= Validation =================
+
 validate_env() {
 	if [[ "$TLS_ENABLED" == "true" ]]; then
 		: "${FULL_DOMAIN:?FULL_DOMAIN is required when TLS is enabled}"
@@ -295,23 +290,23 @@ validate_env() {
 setup_env_interactive() {
 	msg "Interactive env configuration"
 
-    # ---------- Public IP ----------
-    echo
-    echo "Public IP configuration"
+	# ---------- Public IP ----------
+	echo
+	echo "Public IP configuration"
 
-    DETECTED_IP="$(detect_public_ip)"
+	DETECTED_IP="$(detect_public_ip)"
 
-    if [[ -n "$DETECTED_IP" ]]; then
-        read -rp "PUBLIC_IP_ADDR [$DETECTED_IP]: " input
-        PUBLIC_IP_ADDR="${input:-$DETECTED_IP}"
-    else
-        read -rp "PUBLIC_IP_ADDR (autodetect failed): " PUBLIC_IP_ADDR
-    fi
+	if [[ -n "$DETECTED_IP" ]]; then
+		read -rp "PUBLIC_IP_ADDR [$DETECTED_IP]: " input
+		PUBLIC_IP_ADDR="${input:-$DETECTED_IP}"
+	else
+		read -rp "PUBLIC_IP_ADDR (autodetect failed): " PUBLIC_IP_ADDR
+	fi
 
-    [[ -n "$PUBLIC_IP_ADDR" ]] || {
-        echo "PUBLIC_IP_ADDR cannot be empty"
-        exit 1
-    }
+	[[ -n "$PUBLIC_IP_ADDR" ]] || {
+		echo "PUBLIC_IP_ADDR cannot be empty"
+		exit 1
+	}
 
 	# ---------- Domain ----------
 	echo
@@ -358,10 +353,7 @@ setup_env_interactive() {
 
 	# ---------- PGAdmin ----------
 	echo
-	echo "PGAdmin configuration"
-
-	read -rp "PGADMIN_PREFIX (URL path) [pgadmin]: " input
-	PGADMIN_PREFIX="${input:-pgadmin}"
+	echo "PGAdmin configuration (available only via SSH tunnel on 127.0.0.1:5050)"
 
 	read -rp "PGADMIN_DEFAULT_EMAIL [admin@$FULL_DOMAIN]: " input
 	PGADMIN_DEFAULT_EMAIL="${input:-admin@$FULL_DOMAIN}"
@@ -373,36 +365,9 @@ setup_env_interactive() {
 		exit 1
 	}
 
-    # ---------- Traefik basic auth ----------
-    echo
-    echo "Traefik dashboard authentication"
-
-    read -rp "TRAEFIK_AUTH_USER [admin]: " input
-    TRAEFIK_AUTH_USER="${input:-admin}"
-
-    read -rsp "TRAEFIK_AUTH_PASSWORD: " TRAEFIK_AUTH_PASSWORD
-    echo
-    [[ -n "$TRAEFIK_AUTH_PASSWORD" ]] || {
-        echo "TRAEFIK_AUTH_PASSWORD cannot be empty"
-        exit 1
-    }
-
-    read -rsp "Repeat TRAEFIK_AUTH_PASSWORD: " input
-    echo
-    [[ "$TRAEFIK_AUTH_PASSWORD" == "$input" ]] || {
-        echo "Passwords do not match"
-        exit 1
-    }
-
-    TRAEFIK_BASIC_AUTH="$(htpasswd -nbB -C 10 "$TRAEFIK_AUTH_USER" "$TRAEFIK_AUTH_PASSWORD" )"
-    unset TRAEFIK_AUTH_PASSWORD
-
 	# ---------- Grafana ----------
 	echo
-	echo "Grafana configuration"
-
-	read -rp "GRAFANA_PATH_PREFIX [grafana]: " input
-	GRAFANA_PATH_PREFIX="${input:-grafana}"
+	echo "Grafana configuration (available only via SSH tunnel on 127.0.0.1:3000)"
 
 	read -rp "GRAFANA_USER [admin]: " input
 	GRAFANA_USER="${input:-admin}"
@@ -414,24 +379,14 @@ setup_env_interactive() {
 		exit 1
 	}
 
-	# ---------- Prometheus ----------
-	echo
-	echo "Prometheus configuration"
-	read -rp "PROMETHEUS_PREFIX [prometheus]: " input
-	PROMETHEUS_PREFIX="${input:-prometheus}"
-	PROMETHEUS_EXTERNAL_URL="https://${FULL_DOMAIN}/${PROMETHEUS_PREFIX}"
-
 	# ---------- Export ----------
 	export \
-        PUBLIC_IP_ADDR \
+		PUBLIC_IP_ADDR \
 		FULL_DOMAIN CERT_PATH TLS_ENABLED \
 		POSTGRES_DATABASE POSTGRES_USER POSTGRES_PASSWORD \
-		TURN_RANDOM_SECRET \
-		PGADMIN_PREFIX PGADMIN_DEFAULT_EMAIL PGADMIN_DEFAULT_PASSWORD \
-        TRAEFIK_AUTH_USER TRAEFIK_BASIC_AUTH \
-		GRAFANA_PATH_PREFIX GRAFANA_USER GRAFANA_PASSWORD \
-		PROMETHEUS_PREFIX PROMETHEUS_EXTERNAL_URL
-
+		TURN_RANDOM_SECRET TURN_MIN_PORT TURN_MAX_PORT \
+		PGADMIN_DEFAULT_EMAIL PGADMIN_DEFAULT_PASSWORD \
+		GRAFANA_USER GRAFANA_PASSWORD
 }
 
 # ================= Rendering templates =================
@@ -449,10 +404,28 @@ render_templates() {
 	envsubst < templates/acme.json.tpl > traefik/acme.json
 	envsubst < templates/prometheus.yml.tpl > prometheus.yml
 	envsubst < backup/env.tpl > backup/.env
-	envsubst < traefik/templates/auth.yml.tpl > traefik/dynamic/auth.yml
-	envsubst < traefik/templates/dashboard.yml.tpl > traefik/dynamic/dashboard.yml
 	envsubst < traefik/templates/matrix-wellknown.yml.tpl > traefik/dynamic/matrix-wellknown.yml
 }
+
+# ================= Firewall =================
+
+open_firewall_ports() {
+	msg "Configuring firewall (ufw)"
+
+	if ! command -v ufw >/dev/null 2>&1 || ! sudo ufw status | grep -q "Status: active"; then
+		echo "ufw is not installed or not active, skipping."
+		echo "If you use another firewall, open: 80/tcp, 443/tcp, 3478/tcp+udp, ${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
+		return
+	fi
+
+	sudo ufw allow 80/tcp
+	sudo ufw allow 443/tcp
+	sudo ufw allow 3478/tcp
+	sudo ufw allow 3478/udp
+	sudo ufw allow "${TURN_MIN_PORT}:${TURN_MAX_PORT}/udp"
+}
+
+# ================= Main =================
 
 require_root_or_sudo
 detect_os
@@ -465,41 +438,39 @@ prepare_dirs
 setup_env_interactive
 validate_env
 render_templates
+open_firewall_ports
 
 msg "Preparing ownership for runtime user"
 
 sudo chown -R "$RUNTIME_USER:$RUNTIME_USER" \
-	postgres element turn traefik \
-	.env docker-compose.yml 2>/dev/null || true
+	postgres element turn traefik grafana \
+	.env docker-compose.yml prometheus.yml 2>/dev/null || true
 
 msg "Fixing permissions for Synapse directory"
 sudo chown -R 991:991 synapse
 sudo chmod 750 synapse
+
 msg "Setting permissions for acme.json"
 sudo chmod 600 traefik/acme.json
 
 msg "Restricting permissions for secrets"
 sudo chmod 600 .env backup/.env 2>/dev/null || true
-sudo chmod 600 traefik/dynamic/auth.yml
 sudo chmod 600 turn/turnserver.conf
-
 
 # ================= End of script execution =================
 
 msg "Installation completed successfully!"
 echo
 echo "Summary:"
-echo "  TLS enabled: true (Let's Encrypt)"
 echo "  Domain:      $FULL_DOMAIN"
-echo "  Cert path:   $CERT_PATH"
+echo "  Public IP:   $PUBLIC_IP_ADDR"
+echo "  TURN ports:  3478/tcp+udp, ${TURN_MIN_PORT}-${TURN_MAX_PORT}/udp"
 echo
-echo "IMPORTANT:"
-echo "	- Installation was with root privileges."
-echo "	- Docker containers must be started as user: $RUNTIME_USER."
+echo "Admin panels (only via SSH tunnel, not exposed to the internet):"
+echo "  Grafana:           http://localhost:3000"
+echo "  Prometheus:        http://localhost:9090"
+echo "  pgAdmin:           http://localhost:5050"
+echo "  Traefik dashboard: http://localhost:8080/dashboard/"
 echo
-echo "Log out and log in again to apply docker group:"
-echo "	su - $RUNTIME_USER"
-echo
-echo "Please edit .env and configuration files before running containers!"
-echo
-echo "After editing the configuration files, please run the command docker compose up -d"
+echo "Containers must be started as user: $RUNTIME_USER"
+echo "Next step: docker compose up -d"

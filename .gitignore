@@ -13,4 +13,4 @@
 
 docker-compose.yml
 .env
-prometheus.yml
+~/prometheus.yml

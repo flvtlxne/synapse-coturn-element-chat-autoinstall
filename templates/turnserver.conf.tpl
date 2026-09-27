@@ -13,8 +13,8 @@ static-auth-secret=${TURN_RANDOM_SECRET}
 user-quota=12
 total-quota=1200
 
-min-port=49152
-max-port=65535
+min-port=${TURN_MIN_PORT}
+max-port=${TURN_MAX_PORT}
 
 no-cli
 no-loopback-peers

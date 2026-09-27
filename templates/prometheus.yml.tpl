@@ -3,9 +3,8 @@ global:
 
 scrape_configs:
   - job_name: 'prometheus'
-    metrics_path: /prometheus/metrics
     static_configs:
-      - targets: ['127.0.0.1:9090']
+      - targets: ['localhost:9090']
 
   - job_name: 'node'
     static_configs:
