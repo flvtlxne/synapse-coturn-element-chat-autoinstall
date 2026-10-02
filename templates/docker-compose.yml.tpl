@@ -86,6 +86,7 @@ services:
     container_name: turn
     restart: unless-stopped
     network_mode: "host"
+    command: ["--log-file=stdout"]
     volumes:
       - ./turn/turnserver.conf:/etc/coturn/turnserver.conf:ro
 
